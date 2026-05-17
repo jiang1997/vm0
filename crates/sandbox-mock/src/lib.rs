@@ -1226,6 +1226,7 @@ mod tests {
             rootfs_path: "/rootfs/test".into(),
             base_dir: "/tmp/test".into(),
             snapshot: None,
+            device_rate_limits: None,
         }
     }
 
@@ -2304,6 +2305,7 @@ mod tests {
             rootfs_path: "/rootfs/test".into(),
             base_dir: "/tmp/test".into(),
             snapshot: None,
+            device_rate_limits: None,
         };
         let mut factory = runtime.create_factory(factory_config).await.unwrap();
         assert_eq!(factory.name(), "mock");
