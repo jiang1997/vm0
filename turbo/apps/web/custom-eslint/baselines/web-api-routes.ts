@@ -59,7 +59,6 @@ export const WEB_API_ROUTE_BASELINE = [
   "app/api/internal/callbacks/slack/org/route.ts",
   "app/api/internal/callbacks/telegram/route.ts",
   "app/api/internal/callbacks/voice-chat/route.ts",
-  "app/api/internal/event-consumers/axiom/route.ts",
   "app/api/internal/event-consumers/chat-assistant/route.ts",
   "app/api/internal/event-consumers/telegram-typing/route.ts",
   "app/api/internal/event-consumers/voice-chat/route.ts",
@@ -210,7 +209,7 @@ export const WEB_API_ROUTE_BASELINE = [
 ] as const;
 
 export const WEB_API_ROUTE_BASELINE_HASH =
-  "4177485993f9cf3f87f91ed44684c3d7c87cfed2416cee3f4e9a0318775a0628";
+  "fe48f92c4c16c0a31f3c54a692a505e2e7bff641b43cdc0a60f796976c22b7c1";
 
 export function computeWebApiRouteBaselineHash(
   routes: readonly string[] = WEB_API_ROUTE_BASELINE,

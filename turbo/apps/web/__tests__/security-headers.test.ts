@@ -453,6 +453,11 @@ describe("API backend rewrites", () => {
             "https://api.example.test/api/internal/event-consumers/agentphone-typing",
         },
         {
+          source: "/api/internal/event-consumers/axiom",
+          destination:
+            "https://api.example.test/api/internal/event-consumers/axiom",
+        },
+        {
           source: "/api/user/export",
           destination: "https://api.example.test/api/user/export",
         },
