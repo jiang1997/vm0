@@ -206,11 +206,10 @@ export const WEB_API_ROUTE_BASELINE = [
   "app/api/zero/slack/oauth/callback/route.ts",
   "app/api/zero/slack/oauth/connect/route.ts",
   "app/api/zero/slack/oauth/install/route.ts",
-  "app/api/zero/variables/[name]/route.ts",
 ] as const;
 
 export const WEB_API_ROUTE_BASELINE_HASH =
-  "4177485993f9cf3f87f91ed44684c3d7c87cfed2416cee3f4e9a0318775a0628";
+  "3901a023cc4e836ce3c1b721b4f587a120cea56bbda1a2dc2390f1e1076cd871";
 
 export function computeWebApiRouteBaselineHash(
   routes: readonly string[] = WEB_API_ROUTE_BASELINE,

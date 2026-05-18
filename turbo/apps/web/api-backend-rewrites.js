@@ -23,6 +23,8 @@ const ZERO_ME_MODEL_PROVIDER_TYPE_PATH_RE =
   /^\/api\/zero\/me\/model-providers\/[^/]+$/;
 const AGENT_SESSION_ID_REWRITE_SOURCE = "/api/agent/sessions/:id";
 const AGENT_SESSION_ID_PATH_RE = /^\/api\/agent\/sessions\/[^/]+$/;
+const ZERO_VARIABLE_BY_NAME_REWRITE_SOURCE = "/api/zero/variables/:name";
+const ZERO_VARIABLE_BY_NAME_PATH_RE = /^\/api\/zero\/variables\/[^/]+$/;
 
 export const API_BACKEND_REWRITES = [
   ["/api/auth/me", "/api/auth/me"],
@@ -137,6 +139,11 @@ export const API_BACKEND_REWRITES = [
   ["/api/zero/org/list", "/api/zero/org/list"],
   ["/api/zero/org/members/credit-cap", "/api/zero/org/members/credit-cap"],
   ["/api/zero/variables", "/api/zero/variables"],
+  [
+    ZERO_VARIABLE_BY_NAME_REWRITE_SOURCE,
+    "/api/zero/variables/:name",
+    ZERO_VARIABLE_BY_NAME_PATH_RE,
+  ],
   ["/api/zero/voice-chat", "/api/zero/voice-chat"],
   ["/api/zero/voice-chat/token", "/api/zero/voice-chat/token"],
   [
