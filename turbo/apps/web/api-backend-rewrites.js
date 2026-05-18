@@ -127,6 +127,7 @@ export const API_BACKEND_REWRITES = [
   ["/api/zero/queue-position", "/api/zero/queue-position"],
   ["/api/zero/secrets", "/api/zero/secrets"],
   ["/api/zero/report-error", "/api/zero/report-error"],
+  ["/api/zero/skills", "/api/zero/skills"],
   ["/api/zero/team", "/api/zero/team"],
   ["/api/zero/model-policies", "/api/zero/model-policies"],
   ["/api/zero/realtime/token", "/api/zero/realtime/token"],
