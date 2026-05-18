@@ -244,6 +244,16 @@ describe("API backend rewrite proxy behavior", () => {
     );
   });
 
+  it("matches the zero website generation rewrite path exactly", () => {
+    expect(matchesApiBackendRewritePath("/api/zero/website-io/generate")).toBe(
+      true,
+    );
+    expect(
+      matchesApiBackendRewritePath("/api/zero/website-io/generate/extra"),
+    ).toBe(false);
+    expect(matchesApiBackendRewritePath("/api/zero/website-io")).toBe(false);
+  });
+
   it("matches the push subscriptions rewrite path exactly", () => {
     expect(matchesApiBackendRewritePath("/api/zero/push-subscriptions")).toBe(
       true,
