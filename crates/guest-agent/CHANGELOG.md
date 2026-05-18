@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.32.1](https://github.com/vm0-ai/vm0/compare/guest-agent-v0.32.0...guest-agent-v0.32.1) (2026-05-18)
+
+
+### Documentation
+
+* document guest-agent http client constructors ([#13674](https://github.com/vm0-ai/vm0/issues/13674)) ([4ede9cc](https://github.com/vm0-ai/vm0/commit/4ede9cc0dffe19e7c6dc463dec870a03af0de0a3))
+
 ## [0.32.0](https://github.com/vm0-ai/vm0/compare/guest-agent-v0.31.8...guest-agent-v0.32.0) (2026-05-17)
 
 
