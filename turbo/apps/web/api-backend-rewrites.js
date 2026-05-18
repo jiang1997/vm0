@@ -23,6 +23,10 @@ const ZERO_ME_MODEL_PROVIDER_TYPE_PATH_RE =
   /^\/api\/zero\/me\/model-providers\/[^/]+$/;
 const AGENT_SESSION_ID_REWRITE_SOURCE = "/api/agent/sessions/:id";
 const AGENT_SESSION_ID_PATH_RE = /^\/api\/agent\/sessions\/[^/]+$/;
+const ZERO_MODEL_PROVIDER_TYPE_REWRITE_SOURCE =
+  "/api/zero/model-providers/:type";
+const ZERO_MODEL_PROVIDER_TYPE_PATH_RE =
+  /^\/api\/zero\/model-providers\/[^/]+$/;
 
 export const API_BACKEND_REWRITES = [
   ["/api/auth/me", "/api/auth/me"],
@@ -85,6 +89,11 @@ export const API_BACKEND_REWRITES = [
     "/api/zero/me/model-providers/codex-oauth-token/oauth/callback",
   ],
   ["/api/zero/model-providers", "/api/zero/model-providers"],
+  [
+    ZERO_MODEL_PROVIDER_TYPE_REWRITE_SOURCE,
+    "/api/zero/model-providers/:type",
+    ZERO_MODEL_PROVIDER_TYPE_PATH_RE,
+  ],
   [
     "/api/zero/built-in-generations/:path*",
     "/api/zero/built-in-generations/:path*",
