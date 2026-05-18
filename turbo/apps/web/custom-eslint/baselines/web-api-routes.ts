@@ -68,7 +68,6 @@ export const WEB_API_ROUTE_BASELINE = [
   "app/api/runners/poll/route.ts",
   "app/api/runners/realtime/token/route.ts",
   "app/api/storages/commit/route.ts",
-  "app/api/storages/prepare/route.ts",
   "app/api/telegram/register/route.ts",
   "app/api/telegram/setup-status/route.ts",
   "app/api/telegram/webhook/[telegramBotId]/route.ts",
@@ -210,7 +209,7 @@ export const WEB_API_ROUTE_BASELINE = [
 ] as const;
 
 export const WEB_API_ROUTE_BASELINE_HASH =
-  "4177485993f9cf3f87f91ed44684c3d7c87cfed2416cee3f4e9a0318775a0628";
+  "2dd1e56bd76ce52b432b1c28fd3add39b126a538664ec9feb99bdda1a9bdb1f8";
 
 export function computeWebApiRouteBaselineHash(
   routes: readonly string[] = WEB_API_ROUTE_BASELINE,
