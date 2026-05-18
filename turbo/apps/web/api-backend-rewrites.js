@@ -23,8 +23,15 @@ const ZERO_ME_MODEL_PROVIDER_TYPE_PATH_RE =
   /^\/api\/zero\/me\/model-providers\/[^/]+$/;
 const AGENT_SESSION_ID_REWRITE_SOURCE = "/api/agent/sessions/:id";
 const AGENT_SESSION_ID_PATH_RE = /^\/api\/agent\/sessions\/[^/]+$/;
+const AGENT_CHECKPOINT_REWRITE_SOURCE = "/api/agent/checkpoints/:id";
+const AGENT_CHECKPOINT_PATH_RE = /^\/api\/agent\/checkpoints\/[^/]+$/;
 
 export const API_BACKEND_REWRITES = [
+  [
+    AGENT_CHECKPOINT_REWRITE_SOURCE,
+    "/api/agent/checkpoints/:id",
+    AGENT_CHECKPOINT_PATH_RE,
+  ],
   ["/api/auth/me", "/api/auth/me"],
   [
     AGENT_SESSION_ID_REWRITE_SOURCE,
