@@ -10,13 +10,21 @@ import { zeroIntegrationsAgentPhoneContract } from "@vm0/api-contracts/contracts
 import { agentRunCallbacks } from "@vm0/db/schema/agent-run-callback";
 import { agentRuns } from "@vm0/db/schema/agent-run";
 import { agentSessions } from "@vm0/db/schema/agent-session";
-import { agentComposes } from "@vm0/db/schema/agent-compose";
+import {
+  agentComposes,
+  agentComposeVersions,
+} from "@vm0/db/schema/agent-compose";
 import { agentphoneMessages } from "@vm0/db/schema/agentphone-message";
+import { agentphoneThreadSessions } from "@vm0/db/schema/agentphone-thread-session";
 import { agentphoneUserLinks } from "@vm0/db/schema/agentphone-user-link";
+import { orgMetadata } from "@vm0/db/schema/org-metadata";
+import { runnerJobQueue } from "@vm0/db/schema/runner-job-queue";
 import { runUploadedFiles } from "@vm0/db/schema/run-uploaded-file";
 import { storages, storageVersions } from "@vm0/db/schema/storage";
+import { zeroAgents } from "@vm0/db/schema/zero-agent";
+import { zeroRuns } from "@vm0/db/schema/zero-run";
 import { createStore } from "ccstate";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 
 import { createApp } from "../../../app-factory";
@@ -42,7 +50,9 @@ import {
 
 interface AgentPhoneSendMessageBody {
   readonly agent_id: string;
-  readonly to_number: string;
+  readonly to_number?: string;
+  readonly conversation_id?: string;
+  readonly reply_to_message_id?: string;
   readonly body: string;
   readonly media_url?: string;
 }
@@ -50,6 +60,14 @@ interface AgentPhoneSendMessageBody {
 interface RunFixture {
   readonly runId: string;
   readonly sessionId: string;
+  readonly composeId: string;
+}
+
+interface AgentPhoneGroupFixture {
+  readonly phoneHandle: string;
+  readonly conversationId: string;
+  readonly userId: string;
+  readonly orgId: string;
   readonly composeId: string;
 }
 
@@ -122,6 +140,66 @@ const trackRun = createFixtureTracker(async (fixture: RunFixture) => {
     .where(eq(agentComposes.id, fixture.composeId));
 });
 
+const trackAgentPhoneGroupFixture = createFixtureTracker(
+  async (fixture: AgentPhoneGroupFixture) => {
+    const runRows = await writeDb
+      .select({ id: agentRuns.id })
+      .from(agentRuns)
+      .where(
+        and(
+          eq(agentRuns.orgId, fixture.orgId),
+          eq(agentRuns.userId, fixture.userId),
+        ),
+      );
+    const runIds = runRows.map((row) => {
+      return row.id;
+    });
+
+    if (runIds.length > 0) {
+      await writeDb
+        .delete(runnerJobQueue)
+        .where(inArray(runnerJobQueue.runId, runIds));
+      await writeDb
+        .delete(agentRunCallbacks)
+        .where(inArray(agentRunCallbacks.runId, runIds));
+      await writeDb.delete(zeroRuns).where(inArray(zeroRuns.id, runIds));
+      await writeDb.delete(agentRuns).where(inArray(agentRuns.id, runIds));
+    }
+
+    await writeDb
+      .delete(agentSessions)
+      .where(
+        and(
+          eq(agentSessions.orgId, fixture.orgId),
+          eq(agentSessions.userId, fixture.userId),
+        ),
+      );
+    await writeDb
+      .delete(agentphoneMessages)
+      .where(eq(agentphoneMessages.conversationId, fixture.conversationId));
+    await writeDb
+      .delete(agentphoneThreadSessions)
+      .where(
+        eq(agentphoneThreadSessions.conversationId, fixture.conversationId),
+      );
+    await writeDb
+      .delete(agentphoneUserLinks)
+      .where(eq(agentphoneUserLinks.phoneHandle, fixture.phoneHandle));
+    await writeDb
+      .delete(orgMetadata)
+      .where(eq(orgMetadata.orgId, fixture.orgId));
+    await writeDb
+      .delete(agentComposeVersions)
+      .where(eq(agentComposeVersions.composeId, fixture.composeId));
+    await writeDb
+      .delete(zeroAgents)
+      .where(eq(zeroAgents.id, fixture.composeId));
+    await writeDb
+      .delete(agentComposes)
+      .where(eq(agentComposes.id, fixture.composeId));
+  },
+);
+
 function currentSecond(): number {
   return Math.floor(now() / 1000);
 }
@@ -138,15 +216,24 @@ function uniquePhone(): string {
 function configureAgentPhoneEnv(): void {
   mockEnv("SECRETS_ENCRYPTION_KEY", "a".repeat(64));
   mockEnv("R2_USER_STORAGES_BUCKET_NAME", "test-user-storages");
+  mockOptionalEnv("RUNNER_DEFAULT_GROUP", "vm0/test");
   mockOptionalEnv("AGENTPHONE_API_BASE_URL", "https://api.agentphone.to");
   mockOptionalEnv("AGENTPHONE_API_KEY", "agentphone-test-key");
   mockOptionalEnv("AGENTPHONE_PHONE_NUMBER", "+19039853128");
   mockOptionalEnv("AGENTPHONE_WEBHOOK_SECRET", AGENTPHONE_WEBHOOK_SECRET);
+  context.mocks.s3.send.mockResolvedValue({});
 }
 
 function agentPhoneSendMessage() {
   const calls: AgentPhoneSendMessageBody[] = [];
   server.use(
+    http.post("https://api.agentphone.to/v1/conversations/:id/typing", () => {
+      return HttpResponse.json({
+        conversationId: "conv-test",
+        channel: "iMessage",
+        status: "typing indicator sent",
+      });
+    }),
     http.post("https://api.agentphone.to/v1/messages", async ({ request }) => {
       const body = (await request.json()) as AgentPhoneSendMessageBody;
       calls.push(body);
@@ -155,7 +242,7 @@ function agentPhoneSendMessage() {
         status: "sent",
         channel: "sms",
         from_number: "+19039853128",
-        to_number: body.to_number,
+        to_number: body.to_number ?? body.conversation_id ?? null,
         media_urls: body.media_url ? [body.media_url] : [],
       });
     }),
@@ -208,6 +295,52 @@ async function seedAgentPhoneLink(args: {
   return row.id;
 }
 
+async function seedAgentPhoneGroupFixture(): Promise<AgentPhoneGroupFixture> {
+  const phoneHandle = uniquePhone();
+  const userId = uniqueId("user");
+  const orgId = uniqueId("org");
+  const composeId = randomUUID();
+  const versionId = randomUUID();
+  const conversationId = uniqueId("conv");
+
+  await writeDb.insert(agentComposes).values({
+    id: composeId,
+    userId,
+    orgId,
+    name: "agentphone-group-agent",
+    headVersionId: versionId,
+  });
+  await writeDb.insert(agentComposeVersions).values({
+    id: versionId,
+    composeId,
+    content: {
+      version: "1.0",
+      agents: {
+        zero: {
+          framework: "claude-code",
+          environment: { ANTHROPIC_API_KEY: "test-key" },
+        },
+      },
+    },
+    createdBy: userId,
+  });
+  await writeDb.insert(zeroAgents).values({
+    id: composeId,
+    owner: userId,
+    orgId,
+    name: "zero",
+  });
+  await writeDb.insert(orgMetadata).values({
+    orgId,
+    defaultAgentId: composeId,
+  });
+  await seedAgentPhoneLink({ phoneHandle, userId, orgId });
+
+  return trackAgentPhoneGroupFixture(
+    Promise.resolve({ phoneHandle, conversationId, userId, orgId, composeId }),
+  );
+}
+
 async function seedAgentPhoneMessage(args: {
   readonly messageId: string;
   readonly phoneHandle: string;
@@ -257,6 +390,22 @@ function signAgentPhoneWebhook(rawBody: string, timestamp: string): string {
     .digest("hex")}`;
 }
 
+function postAgentPhoneWebhook(body: unknown): Promise<Response> {
+  const rawBody = JSON.stringify(body);
+  const timestamp = String(currentSecond());
+  return Promise.resolve(
+    createApp({ signal: context.signal }).request("/api/agentphone/webhook", {
+      method: "POST",
+      headers: {
+        "x-webhook-timestamp": timestamp,
+        "x-webhook-signature": signAgentPhoneWebhook(rawBody, timestamp),
+        "x-webhook-id": uniqueId("webhook"),
+      },
+      body: rawBody,
+    }),
+  );
+}
+
 async function seedRun(args: {
   readonly userId: string;
   readonly orgId: string;
@@ -285,6 +434,21 @@ async function seedRun(args: {
     prompt: "test prompt",
   });
   return trackRun(Promise.resolve({ runId, sessionId, composeId }));
+}
+
+async function latestRunForAgentPhoneGroup(fixture: AgentPhoneGroupFixture) {
+  const [run] = await writeDb
+    .select()
+    .from(agentRuns)
+    .where(
+      and(
+        eq(agentRuns.orgId, fixture.orgId),
+        eq(agentRuns.userId, fixture.userId),
+      ),
+    )
+    .orderBy(desc(agentRuns.createdAt))
+    .limit(1);
+  return run;
 }
 
 function callbackHeaders(rawBody: string) {
@@ -395,6 +559,87 @@ describe("AgentPhone migrated API routes", () => {
     expect(sendCalls[0]?.body).toContain("/agentphone/connect?");
   });
 
+  it("stores non-addressed iMessage group messages without creating a run", async () => {
+    configureAgentPhoneEnv();
+    const fixture = await seedAgentPhoneGroupFixture();
+    const messageId = uniqueId("ap-group-ambient");
+    const sendCalls = agentPhoneSendMessage();
+
+    const accepted = await postAgentPhoneWebhook({
+      event: "agent.message",
+      channel: "imessage",
+      data: {
+        id: messageId,
+        agentId: "agt-agentphone",
+        from: fixture.phoneHandle,
+        to: "+19039853128",
+        body: "ambient group chatter",
+        conversationId: fixture.conversationId,
+        isGroup: true,
+      },
+    });
+    expect(accepted.status).toBe(200);
+    await clearAllDetached();
+
+    await expect(readAgentPhoneMessage(messageId)).resolves.toMatchObject({
+      conversationId: fixture.conversationId,
+      phoneHandle: fixture.phoneHandle,
+      direction: "inbound",
+    });
+    await expect(latestRunForAgentPhoneGroup(fixture)).resolves.toBeUndefined();
+    expect(sendCalls).toHaveLength(0);
+  });
+
+  it("creates a run for an addressed iMessage group message with group context", async () => {
+    configureAgentPhoneEnv();
+    const fixture = await seedAgentPhoneGroupFixture();
+    const messageId = uniqueId("ap-group-mentioned");
+    const priorMessageId = uniqueId("ap-group-prior");
+    agentPhoneSendMessage();
+
+    const accepted = await postAgentPhoneWebhook({
+      event: "agent.message",
+      channel: "imessage",
+      data: {
+        id: messageId,
+        agentId: "agt-agentphone",
+        from: fixture.phoneHandle,
+        to: "+19039853128",
+        body: "@Zero summarize this thread",
+        conversationId: fixture.conversationId,
+        isGroup: true,
+      },
+      recentHistory: [
+        {
+          id: priorMessageId,
+          content: "Earlier group context",
+          direction: "inbound",
+          channel: "imessage",
+          from: "+15559990000",
+          at: "2026-05-18T00:00:00.000Z",
+        },
+      ],
+    });
+    expect(accepted.status).toBe(200);
+    await clearAllDetached();
+
+    const run = await latestRunForAgentPhoneGroup(fixture);
+    expect(run?.prompt).toBe("summarize this thread");
+    expect(run?.appendSystemPrompt).toContain("Conversation type: group");
+    expect(run?.appendSystemPrompt).toContain("Earlier group context");
+
+    const [callback] = await writeDb
+      .select()
+      .from(agentRunCallbacks)
+      .where(eq(agentRunCallbacks.runId, run!.id))
+      .limit(1);
+    expect(callback?.payload).toMatchObject({
+      conversationId: fixture.conversationId,
+      isGroup: true,
+      rootMessageId: `group:${fixture.conversationId}`,
+    });
+  });
+
   it("post /api/internal/callbacks/agentphone sends failed run output back to AgentPhone", async () => {
     configureAgentPhoneEnv();
     const userId = uniqueId("user");
@@ -447,6 +692,69 @@ describe("AgentPhone migrated API routes", () => {
         body: "AgentPhone route failure",
       }),
     );
+  });
+
+  it("post /api/internal/callbacks/agentphone replies to iMessage groups by conversation", async () => {
+    configureAgentPhoneEnv();
+    const userId = uniqueId("user");
+    const orgId = uniqueId("org");
+    const linkedPhoneHandle = uniquePhone();
+    const senderPhoneHandle = uniquePhone();
+    const conversationId = uniqueId("conv");
+    const userLinkId = await seedAgentPhoneLink({
+      phoneHandle: linkedPhoneHandle,
+      userId,
+      orgId,
+    });
+    const run = await seedRun({ userId, orgId });
+    const { callbackId } = await store.set(
+      seedAgentRunCallback$,
+      {
+        runId: run.runId,
+        url: "http://api.test/api/internal/callbacks/agentphone",
+        payload: {},
+      },
+      context.signal,
+    );
+    const sendCalls = agentPhoneSendMessage();
+    const app = createApp({ signal: context.signal });
+    const rawBody = JSON.stringify({
+      callbackId,
+      runId: run.runId,
+      status: "failed",
+      error: "Group failure",
+      payload: {
+        messageId: "ap-group-trigger",
+        conversationId,
+        channel: "imessage",
+        isGroup: true,
+        rootMessageId: `group:${conversationId}`,
+        phoneHandle: senderPhoneHandle,
+        fromNumber: senderPhoneHandle,
+        toNumber: "+19039853128",
+        userLinkId,
+        agentId: run.composeId,
+        agentphoneAgentId: "agt-agentphone",
+        existingSessionId: null,
+      },
+    });
+
+    const response = await app.request("/api/internal/callbacks/agentphone", {
+      method: "POST",
+      headers: callbackHeaders(rawBody),
+      body: rawBody,
+    });
+
+    expect(response.status).toBe(200);
+    expect(sendCalls[0]).toStrictEqual(
+      expect.objectContaining({
+        agent_id: "agt-agentphone",
+        conversation_id: conversationId,
+        reply_to_message_id: "ap-group-trigger",
+        body: "Group failure",
+      }),
+    );
+    expect(sendCalls[0]?.to_number).toBeUndefined();
   });
 
   it("post /api/zero/integrations/phone/message sends and records a linked phone message", async () => {
